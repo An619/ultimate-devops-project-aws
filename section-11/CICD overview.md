@@ -1,8 +1,4 @@
-This diagram is actually showing **the complete DevOps pipeline** from a developer writing code to that code finally running on Kubernetes.
-
-Since you've now understood **Docker → Kubernetes → Service → Ingress**, this diagram will make much more sense.
-
-Let's go from **left to right**, exactly how a real company works.
+A DevOps  Engineer develops CICD for the microdservices team he works for, not for all
 
 ---
 
