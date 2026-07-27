@@ -1,0 +1,33 @@
+EX:-
+apiVersion: v1
+kind: Service
+metadata:
+  name: opentelemetry-demo-cartservice
+  labels:
+    
+    opentelemetry.io/name: opentelemetry-demo-cartservice
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/component: cartservice
+    app.kubernetes.io/name: opentelemetry-demo-cartservice
+    app.kubernetes.io/version: "1.12.0"
+    app.kubernetes.io/part-of: opentelemetry-demo
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      name: tcp-service
+      targetPort: 8080                   //target port meets the container port in the deplo yaml file (containerPort: 8080)
+  selector:
+    opentelemetry.io/name: opentelemetry-demo-cartservice
+
+...........................................................................................................
+we know a service identifies a pod using labels but how will service know?
+-> Selector:
+-> we specify the label inside this that we have in our pod, pod resource or in our deployment template ( template:
+                                                                                                            metadata:
+                                                                                                              labels:
+                                                                                                                opentelemetry.io/name: opentelemetry-demo-cartservice
+                                                                                                                app.kubernetes.io/instance: opentelemetry-demo
+                                                                                                                app.kubernetes.io/component: cartservice
+                                                                                                                app.kubernetes.io/name: opentelemetry-demo-cartservice)
+                                                                                                                )

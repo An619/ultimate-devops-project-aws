@@ -1,0 +1,320 @@
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    opentelemetry.io/name: opentelemetry-demo-emailservice
+
+ClusterIP means:
+
+Only other Pods inside the Kubernetes cluster can access this service.
+
+Pod A
+   │
+   ▼
+Email Service (ClusterIP)
+   ▲
+   │
+Pod B
+
+Your laptop cannot access it.
+
+Changing it to NodePort
+
+You simply change the type and optionally specify a nodePort.
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: opentelemetry-demo-emailservice
+
+spec:
+  type: NodePort
+
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+
+  selector:
+    opentelemetry.io/name: opentelemetry-demo-emailservice
+
+Notice only two things changed:
+
+type: NodePort
+
+and
+
+nodePort: 30080
+What does each port mean?
+
+This confuses almost everyone initially.
+
+Let's assume:
+
+Node IP = 54.210.15.20
+
+and
+
+port: 8080
+targetPort: 8080
+nodePort: 30080
+
+Now think of the request journey.
+
+Browser
+
+↓
+
+http://54.210.15.20:30080
+
+↓
+
+NodePort Service
+
+↓
+
+Service Port (8080)
+
+↓
+
+Pod
+
+↓
+
+Container Port (8080)
+Meaning of each field
+targetPort
+
+Where is the application actually listening?
+
+Suppose inside your container:
+
+Email Service
+
+Listening on
+
+8080
+
+So
+
+targetPort: 8080
+
+means
+
+Forward traffic to port 8080 inside the Pod.
+
+port
+
+This is the Service's internal port.
+
+Other Pods inside the cluster use it.
+
+Example:
+
+Checkout Pod
+
+↓
+
+emailservice:8080
+
+Notice they never use 30080.
+
+Inside the cluster:
+
+emailservice:8080
+
+works.
+
+nodePort
+
+This opens a port on every Kubernetes worker node.
+
+Example:
+
+Node 1
+54.210.15.20
+
+Port 30080
+Node 2
+54.210.15.21
+
+Port 30080
+Node 3
+54.210.15.22
+
+Port 30080
+
+All of them forward to the Email Service.
+
+Visual Flow
+                    Internet
+                        │
+                        ▼
+          http://54.210.15.20:30080
+                        │
+                        ▼
+                 Kubernetes Node
+                        │
+                 NodePort (30080)
+                        │
+                        ▼
+              Service Port (8080)
+                        │
+                        ▼
+                   Email Pod
+                        │
+                Container:8080
+Can I choose any NodePort?
+
+No.
+
+The default range is
+
+30000 - 32767
+
+So these are valid:
+
+30001
+
+30080
+
+31000
+
+32767
+
+This is invalid:
+
+8080
+
+because NodePorts must be in the configured NodePort range.
+
+What if I don't specify nodePort?
+
+You can write:
+
+spec:
+  type: NodePort
+
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+Kubernetes automatically picks something like
+
+31245
+
+You can check it using:
+
+kubectl get svc
+
+Output:
+
+NAME           TYPE       PORT(S)
+emailservice   NodePort   8080:31245/TCP
+
+Here,
+
+8080:31245
+
+means:
+
+Service Port = 8080
+NodePort = 31245
+Why don't we use NodePort in production?
+
+Imagine you have 20 microservices.
+
+Frontend
+
+Payment
+
+Checkout
+
+Product
+
+Recommendation
+
+Shipping
+
+Currency
+
+Each would need a different NodePort:
+
+30001
+
+30002
+
+30003
+
+30004
+
+30005
+...
+
+Users would have to remember:
+
+myapp.com:30001
+
+myapp.com:30002
+
+myapp.com:30003
+
+That's not practical.
+
+Instead, in production we usually use:
+
+Internet
+     │
+     ▼
+Load Balancer / Ingress
+     │
+     ▼
+Services (ClusterIP)
+     │
+     ▼
+Pods
+
+NodePort is often used:
+
+for learning,
+for testing,
+or as a building block underneath a cloud LoadBalancer.
+For your OpenTelemetry demo
+
+If you changed the frontend Service from ClusterIP to NodePort like this:
+
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+
+and your worker node had the public IP:
+
+13.234.56.78
+
+you could access it in your browser using:
+
+http://13.234.56.78:30080
+
+The browser doesn't talk directly to the Pod. The request flows like this:
+
+Browser
+    │
+    ▼
+Node IP:30080
+    │
+    ▼
+Kubernetes Service
+    │
+    ▼
+Matching Pod
+    │
+    ▼
+Container listening on 8080
+
+This is the key idea behind Kubernetes Services: they provide a stable network endpoint, while the actual Pods behind them can be created, destroyed, or replaced without clients needing to know their IP addresses.

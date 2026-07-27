@@ -1,0 +1,2 @@
+We are using this to deploy all the micro services, it consists of all the deploy.yaml files of each microservice, as it is easier than doing it for all the microservice one by one 
+here when run, i creates all the services first and then all the pods mentioned in the deplo.yaml files

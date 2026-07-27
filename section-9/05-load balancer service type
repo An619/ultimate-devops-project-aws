@@ -1,0 +1,221 @@
+used usually when a cloud platform is attached example AWS
+on a local Kubernetes cluster (like Minikube or Kind), you'll often see:
+EXTERNAL-IP
+<pending>
+because there is no AWS CCM to create a real load balancer.
+.....................................................................................................................
+LoadBalancer
+
+Now simply change
+
+spec:
+  type: LoadBalancer
+
+Your Service becomes
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: opentelemetry-demo-emailservice
+
+spec:
+  type: LoadBalancer
+
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+  selector:
+    opentelemetry.io/name: opentelemetry-demo-emailservice
+
+Notice:
+
+✅ No nodePort is required.
+
+What happens now?
+
+When Kubernetes sees
+
+type: LoadBalancer
+
+it asks the cloud provider.
+
+For AWS it says
+
+"Please create an AWS Load Balancer for me."
+
+On AWS the flow becomes
+
+kubectl apply
+        │
+        ▼
+Kubernetes API Server
+        │
+        ▼
+AWS Cloud Controller
+        │
+        ▼
+Creates AWS Load Balancer
+        │
+        ▼
+AWS gives a Public DNS Name
+
+Something like
+
+a12bc34de5678.elb.amazonaws.com
+Request Flow
+
+Instead of
+
+Browser
+
+↓
+
+EC2:30080
+
+it becomes
+
+Browser
+      │
+      ▼
+AWS Load Balancer
+      │
+      ▼
+Kubernetes Service
+      │
+      ▼
+Pod
+Complete Picture
+                   Internet
+                       │
+                       ▼
+        a12bc34.elb.amazonaws.com
+                       │
+               AWS Load Balancer
+                       │
+             Kubernetes Service
+                       │
+         ┌─────────────┴─────────────┐
+         ▼                           ▼
+     Email Pod 1                Email Pod 2
+
+Notice
+
+The Load Balancer automatically distributes requests.
+
+Request 1 → Pod 1
+
+Request 2 → Pod 2
+
+Request 3 → Pod 1
+
+Request 4 → Pod 2
+Where is the Load Balancer created?
+
+This is important.
+
+Kubernetes doesn't create the Load Balancer itself.
+
+AWS does.
+
+You
+
+↓
+
+kubectl apply
+
+↓
+
+Kubernetes
+
+↓
+
+AWS API
+
+↓
+
+Creates
+
+Application Load Balancer / Network Load Balancer
+
+Exactly like Terraform creating an EC2.
+
+Kubernetes talks to AWS APIs.
+
+How do you find the Load Balancer?
+
+Run
+
+kubectl get svc
+
+Output:
+
+NAME            TYPE           EXTERNAL-IP
+emailservice    LoadBalancer   a12bc34.elb.amazonaws.com
+
+Sometimes initially you'll see
+
+EXTERNAL-IP
+
+<pending>
+
+After a minute or two it changes to
+
+a12bc34.elb.amazonaws.com
+
+Then you access
+
+http://a12bc34.elb.amazonaws.com:8080
+
+(or just http://a12bc34.elb.amazonaws.com if the Load Balancer listens on port 80 and forwards to your Service).
+
+What about NodePort?
+
+Even if you don't specify it,
+
+AWS still creates one internally.
+
+Think of it like this:
+
+Internet
+      │
+      ▼
+AWS Load Balancer
+      │
+      ▼
+NodePort
+      │
+      ▼
+Pods
+
+So a LoadBalancer Service is essentially:
+
+NodePort + Cloud Load Balancer
+
+The NodePort is usually hidden from you, but it's still there unless your cloud integration uses a different implementation.
+
+Why use LoadBalancer?
+
+Imagine you have three worker nodes.
+
+Node 1
+
+Node 2
+
+Node 3
+
+If Node 2 dies,
+
+the AWS Load Balancer automatically sends traffic only to the healthy nodes.
+
+Internet
+      │
+      ▼
+Load Balancer
+      │
+ ┌────┴────┐
+ ▼         ▼
+Node 1   Node 3
+
+You don't have to remember node IPs or ports.
