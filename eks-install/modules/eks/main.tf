@@ -1,3 +1,21 @@
+
+# new: read recommended EKS-optimized AMI for the cluster version
+data "aws_ssm_parameter" "eks_ami" {
+  # uses the Amazon Linux 2 EKS-optimized path; this works for most EKS versions
+  name = format("/aws/service/eks/optimized-ami/%s/amazon-linux-2/recommended/image_id", var.cluster_version)
+}
+
+# new: small launch template that pins the AMI to the recommended EKS image
+resource "aws_launch_template" "eks_nodes" {
+  name_prefix = "${var.cluster_name}-eks-node-"
+  image_id    = data.aws_ssm_parameter.eks_ami.value
+
+  # optional: add tags, user_data, iam instance profile, security_groups if needed
+  # e.g.
+  # user_data = base64encode(templatefile("${path.module}/node_userdata.sh", {}))
+  # instance_type is intentionally omitted since the node group controls instance_types
+}
+
 resource "aws_iam_role" "cluster" {
   name = "${var.cluster_name}-cluster-role"
 
@@ -73,6 +91,12 @@ resource "aws_eks_node_group" "main" {
     desired_size = each.value.scaling_config.desired_size
     max_size     = each.value.scaling_config.max_size
     min_size     = each.value.scaling_config.min_size
+  }
+
+ # new: use the launch template that pins a supported AMI
+  launch_template {
+    id      = aws_launch_template.eks_nodes.id
+    version = "$Latest"
   }
 
   depends_on = [
