@@ -45,6 +45,7 @@ variable "node_groups" {
   type = map(object({
     instance_types = list(string)
     capacity_type  = string
+    ami_type       = string
     scaling_config = object({
       desired_size = number
       max_size     = number
@@ -55,6 +56,7 @@ variable "node_groups" {
     general = {
       instance_types = ["t3.medium"]
       capacity_type  = "ON_DEMAND"
+      ami_type       = "AL2_x86_64"
       scaling_config = {
         desired_size = 2
         max_size     = 4
